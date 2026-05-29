@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "author": "Mahasiswa KKN Hidroponik",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-led", "id": "led_merah", "top": -60, "left": 120, "attrs": { "color": "red" } },
+    { "type": "wokwi-led", "id": "led_hijau", "top": -60, "left": 150, "attrs": { "color": "green"} }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "esp:GND.1", "led_merah:C", "black", [ "v0" ] ],
+    [ "esp:5", "led_merah:A", "red", [ "v0" ] ],
+    [ "esp:GND.1", "led_hijau:C", "black", [ "v0" ]],
+    [ "esp:4", "led_hijau:A", "green", ["v0"]]
+  ]
+}
