@@ -6,24 +6,19 @@
     { "type": "wokwi-breadboard-half", "id": "bb1", "top": -12.6, "left": -35.6, "attrs": {} },
     { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 9.6, "left": -177.56, "attrs": {} },
     { "type": "wokwi-led", "id": "led_merah", "top": 6, "left": 32.6, "attrs": { "color": "red" } },
-    { "type": "wokwi-led", "id": "led_kuning", "top": 6, "left": 80.6, "attrs": { "color": "yellow" } },
-    { "type": "wokwi-led", "id": "led_hijau", "top": 6, "left": 128.6, "attrs": { "color": "green" } }
+    { "type": "wokwi-led", "id": "led_biru", "top": 6, "left": 80.6, "attrs": { "color": "blue" } }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
     [ "esp:GND.2", "bb1:bn.25", "black", [ "v0" ] ],
-    [ "bb1:7t.e", "bb1:bn.5", "blue", [ "v105.6", "h-9.6" ] ],
-    [ "bb1:12t.e", "bb1:bn.10", "blue", [ "v0" ] ],
-    [ "bb1:17t.e", "bb1:bn.14", "blue", [ "v0" ] ],
+    [ "bb1:7t.e", "bb1:bn.5", "yellow", [ "v105.6", "h-9.6" ] ],
+    [ "bb1:12t.e", "bb1:bn.10", "yellow", [ "v0" ] ],
     [ "bb1:8t.e", "esp:6", "red", [ "v0" ] ],
-    [ "bb1:13t.e", "esp:5", "yellow", [ "v0" ] ],
-    [ "bb1:18t.e", "esp:4", "green", [ "v0" ] ],
+    [ "bb1:13t.e", "esp:5", "blue", [ "v0" ] ],
     [ "led_merah:A", "bb1:8t.b", "", [ "$bb" ] ],
     [ "led_merah:C", "bb1:7t.b", "", [ "$bb" ] ],
-    [ "led_kuning:A", "bb1:13t.b", "", [ "$bb" ] ],
-    [ "led_kuning:C", "bb1:12t.b", "", [ "$bb" ] ],
-    [ "led_hijau:A", "bb1:18t.b", "", [ "$bb" ] ],
-    [ "led_hijau:C", "bb1:17t.b", "", [ "$bb" ] ]
+    [ "led_biru:A", "bb1:13t.b", "", [ "$bb" ] ],
+    [ "led_biru:C", "bb1:12t.b", "", [ "$bb" ] ]
   ]
 }
