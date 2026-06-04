@@ -3,22 +3,16 @@
   "author": "Mahasiswa KKN Hidroponik",
   "editor": "wokwi",
   "parts": [
-    { "type": "wokwi-breadboard-half", "id": "bb1", "top": -12.6, "left": -35.6, "attrs": {} },
-    { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 9.6, "left": -177.56, "attrs": {} },
-    { "type": "wokwi-led", "id": "led_merah", "top": 6, "left": 32.6, "attrs": { "color": "red" } },
-    { "type": "wokwi-led", "id": "led_biru", "top": 6, "left": 80.6, "attrs": { "color": "blue" } }
+    { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-led", "id": "led_merah", "top": -60, "left": 120, "attrs": { "color": "red" } },
+    { "type": "wokwi-pushbutton", "id": "tombol", "top": 60, "left": 120, "attrs": { "color": "blue" } }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
-    [ "esp:GND.2", "bb1:bn.25", "black", [ "v0" ] ],
-    [ "bb1:7t.e", "bb1:bn.5", "yellow", [ "v105.6", "h-9.6" ] ],
-    [ "bb1:12t.e", "bb1:bn.10", "yellow", [ "v0" ] ],
-    [ "bb1:8t.e", "esp:6", "red", [ "v0" ] ],
-    [ "bb1:13t.e", "esp:5", "blue", [ "v0" ] ],
-    [ "led_merah:A", "bb1:8t.b", "", [ "$bb" ] ],
-    [ "led_merah:C", "bb1:7t.b", "", [ "$bb" ] ],
-    [ "led_biru:A", "bb1:13t.b", "", [ "$bb" ] ],
-    [ "led_biru:C", "bb1:12t.b", "", [ "$bb" ] ]
+    [ "esp:GND.1", "led_merah:C", "black", [ "v0" ] ],
+    [ "esp:6", "led_merah:A", "red", [ "v0" ] ],
+    [ "esp:GND.2", "tombol:1.1", "black", [ "v0" ] ],
+    [ "esp:2", "tombol:2.1", "blue", [ "v0" ] ]
   ]
 }
