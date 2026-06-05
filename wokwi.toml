@@ -1,4 +1,10 @@
 [wokwi]
+# riscv32imc-unknown-none-elf
+# riscv32: Arsitektur RISC-V 32-bit.
+# i, m, c: Ekstensi instruksi (Integer, Multiply/Divide, Compressed).
+# unknown: Tidak terikat vendor OS tertentu.
+# none: Bare-metal (tidak ada OS).
+# elf: Format keluaran biner (Executable and Linkable Format).
 version = 1
 elf = "target/riscv32imc-unknown-none-elf/debug/kkn-hidroponik"
 firmware = "target/riscv32imc-unknown-none-elf/debug/kkn-hidroponik"

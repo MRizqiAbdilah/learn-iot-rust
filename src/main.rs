@@ -1,4 +1,6 @@
+// Atribut ini memberi tahu compiler Rust (rustc) untuk tidak memuat pustaka std. Sebagai gantinya, Rust menggunakan pustaka core, yang berisi fungsi-fungsi dasar matematika, manipulasi tipe data primitive, dan logika yang tidak membutuhkan bantuan OS. Ini membuat ukuran biner hasil kompilasi menjadi sangat kecil dan efisien.
 #![no_std]
+// Secara default, program Rust mencari fungsi fn main() standar yang dieksekusi oleh OS. dengan #![no_main] maka tidak fn main() sebagai standar melainkan makro #[entry]
 #![no_main]
 
 use esp_backtrace as _;
@@ -14,6 +16,7 @@ enum StatusAir {
     Kritis
 }
 
+// Karena tidak ada OS, kita harus mematikan entry point bawaan ini dan menggunakan makro #[entry] dari Hardware Abstraction Layer (esp-hal). Makro ini bertindak sebagai reset vector yang langsung dieksekusi saat chip menerima daya listrik pertama kali.
 #[entry]
 fn main() -> ! {
     #[allow(unused)]
