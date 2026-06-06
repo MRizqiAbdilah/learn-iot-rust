@@ -1,90 +1,89 @@
-// Atribut ini memberi tahu compiler Rust (rustc) untuk tidak memuat pustaka std. Sebagai gantinya, Rust menggunakan pustaka core, yang berisi fungsi-fungsi dasar matematika, manipulasi tipe data primitive, dan logika yang tidak membutuhkan bantuan OS. Ini membuat ukuran biner hasil kompilasi menjadi sangat kecil dan efisien.
 #![no_std]
-// Secara default, program Rust mencari fungsi fn main() standar yang dieksekusi oleh OS. dengan #![no_main] maka tidak fn main() sebagai standar melainkan makro #[entry]
 #![no_main]
 
 use esp_backtrace as _;
 use esp_hal::{
     delay::Delay,
-    gpio::{Input, Io, Level, Output, Pull},
-    prelude::*,
+    gpio::{Io, Level, Output},
+    prelude::*, rng::Rng
 };
 
-enum StatusAir {
-    Normal,
-    Rendah,
-    Kritis
+// 1. Deklarasi Struct Data
+struct DataIklim {
+    suhu: f32,
+    kelembaban: f32,
 }
 
-// Karena tidak ada OS, kita harus mematikan entry point bawaan ini dan menggunakan makro #[entry] dari Hardware Abstraction Layer (esp-hal). Makro ini bertindak sebagai reset vector yang langsung dieksekusi saat chip menerima daya listrik pertama kali.
+// 2. Fungsi Mocking untuk menstimulasi pembacaan sensor
+// Nanti ini akan kita ganti dengan driver DHT sungguhan
+fn baca_sensor() -> DataIklim {
+    // Mengembalikan instance dari struct
+    DataIklim {
+        suhu: 26.0,       // Coba ubah angka ini nanti saat latihan
+        kelembaban: 70.0,
+    }
+}
+
+// 3. Modifikasi FSM Enum untuk Suhu
+enum StatusSuhu {
+    Aman,
+    Panas,
+}
+
 #[entry]
 fn main() -> ! {
     #[allow(unused)]
     let peripherals = esp_hal::init(esp_hal::Config::default());
     let delay = Delay::new();
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut rng = Rng::new(peripherals.RNG);
 
-    // merah untuk indikator alarm
+
+    let mut led_hijau = Output::new(io.pins.gpio4, Level::Low);
     let mut led_merah = Output::new(io.pins.gpio6, Level::Low);
 
-    // hijau untuk indikator normal
-    let mut led_hijau = Output::new(io.pins.gpio5, Level::Low);
-
-    let tombol = Input::new(io.pins.gpio2, Pull::Up);
-
-    // Set status_sistem awal yaitu Normal
-    let mut status_sistem = StatusAir::Normal;
-
-    // Ini merupakan awal, sebelum memasuki loop
-    // indikator normal dinyalakan
-    log::info!("Status: Normal. Air cukup.\r");
-    led_hijau.set_high();
+    let mut status_sistem = StatusSuhu::Aman;
 
     esp_println::logger::init_logger_from_env();
-    
+
     loop {
-        // membuat seolah" tombol itu menjadi toggle
-        // tombol ditekan
-        if tombol.is_low(){
-            // Debouncing, jadi biar gak bisa spam
-            delay.delay(50.millis());
-            
-            // Cek kembali, apakah tombol ditekan? 
-            if tombol.is_low() {
-                // ini akan membuat status_sitem berubah
-                // normal ke rendah, rendah ke kritis, kritis ke normal, dst
-                status_sistem = match status_sistem {
-                    StatusAir::Normal => StatusAir::Rendah,
-                    StatusAir::Rendah => StatusAir::Kritis,
-                    StatusAir::Kritis => StatusAir::Normal
-                };
+        // A. Proses Input: Membaca struct dari sensor
+        let mut data_saat_ini = baca_sensor();
+        let angka_acak = rng.random();
 
-                // Jadi akan memberikan jeda, jika tombol dilepas
-                // dilakukan agar tidak tidak bisa melakukan tekan-lepas tombol berkali"
-                while tombol.is_low(){
-                    delay.delay(10.millis());
-                }
-            }
+        let fluktuasi = (angka_acak % 6) as f32;
 
-            // tergantung pada status_sistem state yang dilakukan akan berbeda"
-            match status_sistem {
-                StatusAir::Normal => {
-                    // indikator normal akan dinyalakan
-                    log::info!("Status: Normal. Air cukup.\r");
-                    led_hijau.set_high();
-                    led_merah.set_low();
-                },
-                StatusAir::Rendah => {
-                    // indikator normal dan alarm akan dimatikan, akan menyalakan pompa
-                    log::info!("Status: Rendah. Sedang menyalakan pompa.\r");
-                    led_hijau.set_low();
-                },
-                StatusAir::Kritis => {
-                    // indikator alarm dinyalakan, pompa dimatikan
-                    log::info!("Status: Kritis. Pompa dimatikan, Alarm dinyalakan.\r");
-                    led_merah.set_high();
-                }
+        log::info!("Membaca DHT... Suhu: {} C, Kelembaban: {} %\r", data_saat_ini.suhu, data_saat_ini.kelembaban);
+
+        data_saat_ini.suhu = data_saat_ini.suhu + fluktuasi;
+        log::info!("Suhu setelah fluktuasi: {} C \r", data_saat_ini.suhu);
+
+
+        // B. Proses Transisi State (LATIHAN ANDA DI SINI)
+        // ...
+        if data_saat_ini.suhu > 30.0 {
+            status_sistem = StatusSuhu::Panas;
+        } else {
+            status_sistem = StatusSuhu::Aman
+        }
+
+        // C. Proses Output (LATIHAN ANDA DI SINI)
+        // ...
+        match status_sistem {
+            // Aman: Nyalakan LED Hijau, matikan LED Merah. Tampilkan log peringatan yang sesuai.
+            StatusSuhu::Aman => {
+                led_hijau.set_high();
+                led_merah.set_low();
+                log::info!("Status: Aman, Matikan pendingin...\r");
+            },
+            // Panas: Matikan LED Hijau, nyalakan LED Merah (Anggap ini menyalakan kipas/pompa pendingin di greenhouse). Tampilkan log peringatan yang sesuai.
+            StatusSuhu::Panas => {
+                led_hijau.set_low();
+                led_merah.set_high();
+                log::info!("Status: Panas, nyalakan pendingin...\r");
             }
         }
+
+        delay.delay(2000.millis()); // Sensor iklim lambat, beri delay 2 detik
     }
 }

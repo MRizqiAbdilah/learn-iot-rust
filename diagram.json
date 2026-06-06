@@ -6,16 +6,17 @@
     { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
     { "type": "wokwi-led", "id": "led_merah", "top": -60, "left": 120, "attrs": { "color": "red" } },
     { "type": "wokwi-led", "id": "led_hijau", "top": -60, "left": 150, "attrs": { "color": "green" } },
-    { "type": "wokwi-pushbutton", "id": "tombol", "top": 60, "left": 120, "attrs": { "color": "blue" } }
+    { "type": "wokwi-dht22", "id": "dht1", "top": 50, "left": 100, "attrs": {} }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
     [ "esp:GND.1", "led_merah:C", "black", [ "v0" ] ],
-    [ "esp:GND.1", "led_hijau:C", "black", [ "v0" ] ],
     [ "esp:6", "led_merah:A", "red", [ "v0" ] ],
-    [ "esp:5", "led_hijau:A", "green", [ "v0" ] ],
-    [ "esp:GND.2", "tombol:1.1", "black", [ "v0" ] ],
-    [ "esp:2", "tombol:2.1", "blue", [ "v0" ] ]
+    [ "esp:GND.1", "led_hijau:C", "black", [ "v0" ] ],
+    [ "esp:4", "led_hijau:A", "green", [ "v0" ] ],
+    [ "esp:3V3", "dht1:VCC", "red", [ "v0" ] ],
+    [ "esp:GND.2", "dht1:GND", "black", [ "v0" ] ],
+    [ "esp:8", "dht1:SDA", "blue", [ "v0" ] ]
   ]
 }
