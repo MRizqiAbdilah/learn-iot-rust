@@ -4,30 +4,12 @@
 use esp_backtrace as _;
 use esp_hal::{
     delay::Delay,
-    gpio::{Io, Level, Output},
-    prelude::*, rng::Rng
+    gpio::{Io, Level, Output, OutputOpenDrain, Pull},
+    prelude::*,
 };
 
-
-struct DataIklim {
-    suhu: f32,
-    kelembaban: f32,
-}
-
-fn baca_sensor(rng: &mut Rng) -> Result<DataIklim, &'static str> {
-    let probabilitas_err = rng.random() % 10;
-
-    if probabilitas_err < 2 {
-        return Err("Kabel data DHT terputus...");
-    }
-
-    let suhu = 27.0 + ((rng.random() % 6) as f32);
-
-    Ok(DataIklim {
-        suhu: suhu,
-        kelembaban: 70.0,
-    })
-}
+// Import crate driver DHT22
+use dht_sensor::{dht22};
 
 enum StatusSuhu {
     Aman,
@@ -39,48 +21,65 @@ enum StatusSuhu {
 fn main() -> ! {
     #[allow(unused)]
     let peripherals = esp_hal::init(esp_hal::Config::default());
-    let delay = Delay::new();
+    // Kita buat delay mutable (bisa diubah) karena dht_sensor membutuhkannya untuk menghitung timing
+    let mut delay = Delay::new();
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut rng = Rng::new(peripherals.RNG);
 
+    // Konfigurasi pin DHT22 (GPIO 8) sebagai Open-Drain dengan Internal Pull-Up
+    let mut dht_pin = OutputOpenDrain::new(io.pins.gpio8, Level::High, Pull::Up);
 
-    let mut led_hijau = Output::new(io.pins.gpio4, Level::Low);
+    // merah = 6, hijau = 4
     let mut led_merah = Output::new(io.pins.gpio6, Level::Low);
+    let mut led_hijau = Output::new(io.pins.gpio4, Level::Low);
 
     let mut status_sistem = StatusSuhu::Aman;
-
+    
     esp_println::logger::init_logger_from_env();
+    log::info!("Sistem Hidroponik Menyala. Memulai kalibrasi DHT22...\r");
 
+     // Sensor DHT butuh waktu 1-2 detik setelah power-on sebelum bisa dibaca
+    delay.delay(2000.millis());
     loop {
-        match baca_sensor(&mut rng) {
+        // Crate dht_sensor sudah otomatis mengembalikan enum Result!
+        // Fungsinya akan membaca pin secara langsung.
+        match dht22::blocking::read(&mut delay, &mut dht_pin) {
             Ok(data) => {
-                if data.suhu > 30.0 {
+                // data.temperature bertipe f32
+                // data.relative_humidity bertipe f32
+                log::info!("Sensor Fisik -> Suhu: {} C, Kelembaban: {} %\r", data.temperature, data.relative_humidity);
+
+                // (TANTANGAN ANDA: Lakukan logika transisi State di sini)
+                if data.temperature > 30.0 {
                     status_sistem = StatusSuhu::Panas;
                 } else {
-                    status_sistem = StatusSuhu::Aman
+                    status_sistem = StatusSuhu::Aman;
                 }
-            },
-            Err(err) => {
-                log::error!("Peringatan Sistem: {}\r", err);
+            }
+            Err(_error) => {
+                // Crate ini menghasilkan error tipe enum khusus, kita konversi saja ke log manual
+                log::error!("Peringatan Sistem: Gagal membaca sensor DHT fisik!\r");
+                
+                // (TANTANGAN ANDA: Lakukan transisi state ErrorSensor di sini)
                 status_sistem = StatusSuhu::ErrorSensor;
             }
         }
-        
-        match status_sistem {
+
+         // (TANTANGAN ANDA: Lakukan eksekusi output LED berdasarkan State di sini)
+         match status_sistem {
             // Aman: Nyalakan LED Hijau, matikan LED Merah. Tampilkan log peringatan yang sesuai.
             StatusSuhu::Aman => {
-                led_hijau.set_high();
-                led_merah.set_low();
-                log::info!("Status: Aman, Pendingin Mati.\r");
+                 led_hijau.set_high();
+                 led_merah.set_low();
+                 log::info!("Status: Aman, Pendingin Mati.\r");
             },
             // Panas: Matikan LED Hijau, nyalakan LED Merah (Anggap ini menyalakan kipas/pompa pendingin di greenhouse). Tampilkan log peringatan yang sesuai.
             StatusSuhu::Panas => {
-                led_hijau.set_low();
-                led_merah.set_high();
-                log::info!("Status: Panas! Menyalakan Pendingin.\r");
+                 led_hijau.set_low();
+                 led_merah.set_high();
+                 log::info!("Status: Panas! Menyalakan Pendingin.\r");
             },
             StatusSuhu::ErrorSensor => {
-                for _ in 0..5 {
+                 for _ in 0..5 {
                     delay.delay(500.millis());
                     led_hijau.set_high();
                     led_merah.set_high();
@@ -91,7 +90,7 @@ fn main() -> ! {
                 }
             }
         }
-    
-    delay.delay(2000.millis()); // Sensor iklim lambat, beri delay 2 detik
+        // Delay 2 detik (DHT22 tidak boleh dibaca lebih cepat dari 2 detik sekali)
+        delay.delay(2000.millis());
     }
 }
