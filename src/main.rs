@@ -8,26 +8,31 @@ use esp_hal::{
     prelude::*, rng::Rng
 };
 
-// 1. Deklarasi Struct Data
+
 struct DataIklim {
     suhu: f32,
     kelembaban: f32,
 }
 
-// 2. Fungsi Mocking untuk menstimulasi pembacaan sensor
-// Nanti ini akan kita ganti dengan driver DHT sungguhan
-fn baca_sensor() -> DataIklim {
-    // Mengembalikan instance dari struct
-    DataIklim {
-        suhu: 26.0,       // Coba ubah angka ini nanti saat latihan
-        kelembaban: 70.0,
+fn baca_sensor(rng: &mut Rng) -> Result<DataIklim, &'static str> {
+    let probabilitas_err = rng.random() % 10;
+
+    if probabilitas_err < 2 {
+        return Err("Kabel data DHT terputus...");
     }
+
+    let suhu = 27.0 + ((rng.random() % 6) as f32);
+
+    Ok(DataIklim {
+        suhu: suhu,
+        kelembaban: 70.0,
+    })
 }
 
-// 3. Modifikasi FSM Enum untuk Suhu
 enum StatusSuhu {
     Aman,
     Panas,
+    ErrorSensor
 }
 
 #[entry]
@@ -47,43 +52,46 @@ fn main() -> ! {
     esp_println::logger::init_logger_from_env();
 
     loop {
-        // A. Proses Input: Membaca struct dari sensor
-        let mut data_saat_ini = baca_sensor();
-        let angka_acak = rng.random();
-
-        let fluktuasi = (angka_acak % 6) as f32;
-
-        log::info!("Membaca DHT... Suhu: {} C, Kelembaban: {} %\r", data_saat_ini.suhu, data_saat_ini.kelembaban);
-
-        data_saat_ini.suhu = data_saat_ini.suhu + fluktuasi;
-        log::info!("Suhu setelah fluktuasi: {} C \r", data_saat_ini.suhu);
-
-
-        // B. Proses Transisi State (LATIHAN ANDA DI SINI)
-        // ...
-        if data_saat_ini.suhu > 30.0 {
-            status_sistem = StatusSuhu::Panas;
-        } else {
-            status_sistem = StatusSuhu::Aman
+        match baca_sensor(&mut rng) {
+            Ok(data) => {
+                if data.suhu > 30.0 {
+                    status_sistem = StatusSuhu::Panas;
+                } else {
+                    status_sistem = StatusSuhu::Aman
+                }
+            },
+            Err(err) => {
+                log::error!("Peringatan Sistem: {}\r", err);
+                status_sistem = StatusSuhu::ErrorSensor;
+            }
         }
-
-        // C. Proses Output (LATIHAN ANDA DI SINI)
-        // ...
+        
         match status_sistem {
             // Aman: Nyalakan LED Hijau, matikan LED Merah. Tampilkan log peringatan yang sesuai.
             StatusSuhu::Aman => {
                 led_hijau.set_high();
                 led_merah.set_low();
-                log::info!("Status: Aman, Matikan pendingin...\r");
+                log::info!("Status: Aman, Pendingin Mati.\r");
             },
             // Panas: Matikan LED Hijau, nyalakan LED Merah (Anggap ini menyalakan kipas/pompa pendingin di greenhouse). Tampilkan log peringatan yang sesuai.
             StatusSuhu::Panas => {
                 led_hijau.set_low();
                 led_merah.set_high();
-                log::info!("Status: Panas, nyalakan pendingin...\r");
+                log::info!("Status: Panas! Menyalakan Pendingin.\r");
+            },
+            StatusSuhu::ErrorSensor => {
+                for _ in 0..5 {
+                    delay.delay(500.millis());
+                    led_hijau.set_high();
+                    led_merah.set_high();
+                    delay.delay(500.millis());
+                    led_hijau.set_low();
+                    led_merah.set_low();
+                    log::warn!("Status: Error Sensor, Segera Perbaiki!\r")
+                }
             }
         }
-
-        delay.delay(2000.millis()); // Sensor iklim lambat, beri delay 2 detik
+    
+    delay.delay(2000.millis()); // Sensor iklim lambat, beri delay 2 detik
     }
 }
