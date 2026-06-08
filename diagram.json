@@ -6,7 +6,8 @@
     { "type": "board-esp32-c3-devkitm-1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
     { "type": "wokwi-led", "id": "led_merah", "top": -60, "left": 120, "attrs": { "color": "red" } },
     { "type": "wokwi-led", "id": "led_hijau", "top": -60, "left": 150, "attrs": { "color": "green" } },
-    { "type": "wokwi-dht22", "id": "dht1", "top": 50, "left": 100, "attrs": {} }
+    { "type": "wokwi-dht22", "id": "dht1", "top": 50, "left": 100, "attrs": {} },
+    { "type": "wokwi-hc-sr04", "id": "ultrasonic", "top": -150, "left": 0, "attrs": {} }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
@@ -17,6 +18,11 @@
     [ "esp:4", "led_hijau:A", "green", [ "v0" ] ],
     [ "esp:3V3", "dht1:VCC", "red", [ "v0" ] ],
     [ "esp:GND.2", "dht1:GND", "black", [ "v0" ] ],
-    [ "esp:8", "dht1:SDA", "blue", [ "v0" ] ]
+    [ "esp:8", "dht1:SDA", "blue", [ "v0" ] ],
+
+    [ "esp:5V", "ultrasonic:VCC", "red", [ "v0" ] ],
+    [ "esp:GND.2", "ultrasonic:GND", "black", [ "v0" ] ],
+    [ "esp:3", "ultrasonic:TRIG", "green", [ "v0" ] ],
+    [ "esp:1", "ultrasonic:ECHO", "blue", [ "v0" ] ]
   ]
 }
