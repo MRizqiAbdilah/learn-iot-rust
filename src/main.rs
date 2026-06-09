@@ -4,25 +4,20 @@
 use esp_backtrace as _;
 use esp_hal::{
     delay::Delay,
-    gpio::{Input, Io, Level, Output, OutputOpenDrain, Pull},
+    gpio::{Input, Io, Level, Output, Pull},
     prelude::*, timer::systimer::SystemTimer,
 };
 
-// Import crate driver DHT22
-use dht_sensor::{dht22};
-
-enum StatusSuhu {
-    Aman,
-    Panas,
-    ErrorSensor
+// Enum FSM yang merepresentasikan status pompa dengan Histeresis
+#[derive(PartialEq, Debug)] // Ditambahkan agar enum bisa dibandingkan nilainya
+enum StatusPompa {
+    Menunggu, // Pompa mati, menunggu air surut
+    Mengisi,  // Pompa hidup, sedang mengisi bak
 }
 
-enum StatusAir {
-    Cukup,
-    Surut,
-    Habis
-}
 
+// (Salin FUNGSI hitung_jarak_cm dari Hari ke-9 di sini)
+// (Salin FUNGSI baca_ultrasonik dari Hari ke-9 di sini)
 fn hitung_jarak_cm(durasi_us: u64) -> f32 {
     let jarak: f32 = (durasi_us as f32 * 0.0343) / 2.0;
     return jarak
@@ -67,123 +62,58 @@ fn baca_ultrasonik(trig: &mut Output<'_>, echo: &Input<'_>, delay: &mut Delay ) 
 fn main() -> ! {
     #[allow(unused)]
     let peripherals = esp_hal::init(esp_hal::Config::default());
-    // Kita buat delay mutable (bisa diubah) karena dht_sensor membutuhkannya untuk menghitung timing
     let mut delay = Delay::new();
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
 
-    // Konfigurasi pin DHT22 (GPIO 8) sebagai Open-Drain dengan Internal Pull-Up
-    let mut dht_pin = OutputOpenDrain::new(io.pins.gpio8, Level::High, Pull::Up);
-
-    // Inisialisasi HC-SR04
     let mut pin_trig = Output::new(io.pins.gpio3, Level::Low);
-
-    // Pin echo sebagai input dengan internal Pull-Down untuk mencegah floating
     let pin_echo = Input::new(io.pins.gpio1, Pull::Down);
-
-    // merah = 6, hijau = 4
-    let mut led_merah = Output::new(io.pins.gpio6, Level::Low);
-    let mut led_hijau = Output::new(io.pins.gpio4, Level::Low);
-
-    let mut status_suhu = StatusSuhu::Aman;
-    let mut status_air = StatusAir::Cukup;
     
+    // Inisialisasi pin untuk mengontrol Relay
+    let mut relay_pompa = Output::new(io.pins.gpio7, Level::Low);
+
+    // Status awal pompa
+    let mut status_pompa = StatusPompa::Menunggu;
+
     esp_println::logger::init_logger_from_env();
-    log::info!("Sistem Hidroponik Menyala. Memulai kalibrasi DHT22...\r");
-    
-    // Sensor DHT butuh waktu 1-2 detik setelah power-on sebelum bisa dibaca
-    delay.delay(2000.millis());
-    
+    log::info!("Sistem Kontrol Pompa Air Aktif...\r");
+
     loop {
         match baca_ultrasonik(&mut pin_trig, &pin_echo, &mut delay) {
             Ok(jarak) => {
-                log::info!("Jarak Permukaan Air: {:.2} cm\r", jarak);
+                log::info!("Jarak Permukaan: {:.2} cm\r", jarak);
 
-                if jarak < 10.0 {
-                    status_air = StatusAir::Cukup;
-                } else if jarak >= 10.0 && jarak < 20.0 {
-                    status_air = StatusAir::Surut;
-                } else {
-                    status_air = StatusAir::Habis;
+                // (TANTANGAN ANDA: Lakukan logika transisi state dengan Histeresis di sini)
+                /* Contoh alur pemikiran Histeresis:
+                   Jika status saat ini Menunggu DAN jarak >= 20.0 -> ubah ke Mengisi
+                   Jika status saat ini Mengisi DAN jarak <= 10.0 -> ubah ke Menunggu
+                */
+                if status_pompa == StatusPompa::Menunggu && jarak >= 20.0 {
+                    status_pompa = StatusPompa::Mengisi;
+                } else if status_pompa == StatusPompa::Mengisi && jarak <= 10.0 {
+                    status_pompa = StatusPompa::Menunggu;
                 }
             }
             Err(err) => {
-                log::error!("Pesan sistem: {}\r", err);
+                log::error!("Error Sensor: {}\r", err);
+                // Matikan pompa demi keamanan jika sensor rusak
+                status_pompa = StatusPompa::Menunggu;
             }
         }
 
-        match status_air {
-            StatusAir::Cukup => {
-                led_hijau.set_high();
-                led_merah.set_low();
-                log::info!("Aman: Tangki Air Penuh.\r");
-            },
-            StatusAir::Surut => {
-                led_hijau.set_low();
-                led_merah.set_low();
-                log::info!("Peringatan: Air mulai surut.\r");
-            },
-            StatusAir::Habis => {
-                led_hijau.set_low();
-                led_merah.set_high();
-                log::info!("KRITIS: Air habis! Isi ulang sekarang.\r");
+        // (TANTANGAN ANDA: Eksekusi state pada relay)
+        match status_pompa {
+            StatusPompa::Menunggu => {
+                // Matikan relay, tulis log
+                log::info!("Status: Menunggu, Mematikan Pompa Air\r");
+                relay_pompa.set_low();
+            }
+            StatusPompa::Mengisi => {
+                // Nyalakan relay, tulis log
+                log::info!("Status: Mengisi, Mengaktifkan Pompa Air\r");
+                relay_pompa.set_high();
             }
         }
 
         delay.delay(1000.millis());
-
-        // Crate dht_sensor sudah otomatis mengembalikan enum Result!
-        // Fungsinya akan membaca pin secara langsung.
-        match dht22::blocking::read(&mut delay, &mut dht_pin) {
-            Ok(data) => {
-                // data.temperature bertipe f32
-                // data.relative_humidity bertipe f32
-                log::info!("Sensor Fisik -> Suhu: {} C, Kelembaban: {} %\r", data.temperature, data.relative_humidity);
-            
-                // (TANTANGAN ANDA: Lakukan logika transisi State di sini)
-                if data.temperature > 30.0 {
-                    status_suhu = StatusSuhu::Panas;
-                } else {
-                    status_suhu = StatusSuhu::Aman;
-                }
-                
-            }
-            Err(_error) => {
-                // Crate ini menghasilkan error tipe enum khusus, kita konversi saja ke log manual
-                log::error!("Peringatan Sistem: Gagal membaca sensor DHT fisik!\r");
-                
-                // (TANTANGAN ANDA: Lakukan transisi state ErrorSensor di sini)
-                status_suhu = StatusSuhu::ErrorSensor;
-            }
-        }
-        
-
-        // (TANTANGAN ANDA: Lakukan eksekusi output LED berdasarkan State di sini)
-        match status_suhu {
-            // Aman: Nyalakan LED Hijau, matikan LED Merah. Tampilkan log peringatan yang sesuai.
-            StatusSuhu::Aman => {
-                led_hijau.set_high();
-                led_merah.set_low();
-                log::info!("Status: Aman, Pendingin Mati.\r");
-            },
-            // Panas: Matikan LED Hijau, nyalakan LED Merah (Anggap ini menyalakan kipas/pompa pendingin di greenhouse). Tampilkan log peringatan yang sesuai.
-            StatusSuhu::Panas => {
-                led_hijau.set_low();
-                led_merah.set_high();
-                log::info!("Status: Panas! Menyalakan Pendingin.\r");
-            },
-            StatusSuhu::ErrorSensor  => {
-                for _ in 0..5 {
-                    delay.delay(500.millis());
-                    led_hijau.set_high();
-                    led_merah.set_high();
-                    delay.delay(500.millis());
-                    led_hijau.set_low();
-                    led_merah.set_low();
-                    log::warn!("Status: Error Sensor, Segera Perbaiki!\r")
-                }
-            }
-        }
-        // Delay 2 detik (DHT22 tidak boleh dibaca lebih cepat dari 2 detik sekali)
-        delay.delay(2000.millis());
     }
 }
